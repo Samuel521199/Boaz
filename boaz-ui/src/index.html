@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boaz AI 安全仪表盘</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            boaz: { dark: '#0f172a', card: '#1e293b', border: '#334155', accent: '#6366f1' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
+    body { font-family: "Microsoft YaHei", "PingFang SC", "JetBrains Mono", sans-serif; }
+    .status-ring { transition: all 0.3s ease; }
+    .ai-judge-btn { background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); }
+    .ai-judge-btn:hover { background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%); }
+    .pulse-dot { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.5; } }
+    .jachin-glow { box-shadow: 0 0 12px rgba(139, 92, 246, 0.5); animation: jachin-shine 2s ease-in-out infinite; }
+    @keyframes jachin-shine { 0%, 100% { box-shadow: 0 0 12px rgba(139, 92, 246, 0.5); } 50% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.8); } }
+    .slide-down { animation: slideDown 0.3s ease-out; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+  <div class="max-w-lg mx-auto px-4 py-6">
+    <!-- 标题 -->
+    <h1 class="text-xl font-semibold text-gray-50 mb-1">Boaz 零信任安全系统</h1>
+    <p class="text-sm text-gray-400 mb-6">咽喉点狙击 · AI 研判 · 人机共生</p>
+
+    <!-- 三维雷达顶栏 -->
+    <div id="radar-wrap" class="flex flex-col items-center py-6 mb-6 rounded-2xl bg-gray-800/80 border border-gray-700 shadow-xl">
+      <div id="status-ring" class="status-ring w-28 h-28 rounded-full flex items-center justify-center text-sm font-bold border-4 border-gray-600 bg-gray-700 text-gray-400">
+        就绪
+      </div>
+      <p id="status-label" class="text-xs text-gray-500 mt-2">选择盘符后开始扫描</p>
+    </div>
+
+    <!-- 操作区 -->
+    <div class="space-y-4 mb-6">
+      <div class="rounded-xl bg-gray-800/60 border border-gray-700 p-4 shadow-lg">
+        <h3 class="text-sm font-semibold text-gray-300 mb-2">① 选择磁盘</h3>
+        <select id="driveSelect" class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm mb-2">
+          <option value="">-- 请选择盘符 --</option>
+        </select>
+        <input id="mount" type="text" placeholder="或填写路径：C:\\、D:\\" class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm placeholder-gray-500" />
+      </div>
+
+      <div class="rounded-xl bg-gray-800/60 border border-gray-700 p-4 shadow-lg">
+        <h3 class="text-sm font-semibold text-gray-300 mb-2">② 开始扫描</h3>
+        <button id="btn" class="w-full py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-500 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed">
+          开始扫描
+        </button>
+      </div>
+
+      <div class="rounded-xl bg-gray-800/60 border border-gray-700 p-4 shadow-lg">
+        <h3 class="text-sm font-semibold text-gray-300 mb-2">③ The Eye of Boaz 实时监控</h3>
+        <div class="flex flex-wrap gap-2 gap-y-2 mb-2">
+          <input id="daemonDrive" type="text" placeholder="盘符留空=全盘" class="flex-1 min-w-[100px] px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm" />
+          <input id="daemonInterval" type="number" value="10" min="5" max="120" class="w-16 px-2 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm" />
+        </div>
+        <div class="flex gap-2">
+          <button id="btnDaemonStart" class="flex-1 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-500">启动监控</button>
+          <button id="btnDaemonStop" class="flex-1 py-2 rounded-lg font-medium text-gray-300 bg-gray-600 hover:bg-gray-500 disabled:opacity-50" disabled>停止监控</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">启动后自动最小化到托盘，点击右下角图标可恢复。需 boaz-daemon.exe 与程序同目录</p>
+        <div id="daemonLog" class="mt-2 p-2 rounded-lg bg-gray-900/50 text-xs text-gray-400 max-h-24 overflow-y-auto font-mono"></div>
+      </div>
+    </div>
+
+    <!-- 运行日志（可折叠） -->
+    <details class="mb-6 rounded-xl border border-gray-700 bg-gray-800/40 overflow-hidden">
+      <summary class="px-4 py-2 text-sm text-gray-500 cursor-pointer hover:text-gray-400">运行日志</summary>
+      <div id="log" class="p-3 text-xs font-mono text-gray-400 max-h-48 overflow-y-auto whitespace-pre-wrap"></div>
+      <div class="px-3 py-2 flex gap-2 border-t border-gray-700">
+        <button id="btnCopyLog" class="text-xs px-2 py-1 rounded bg-gray-600 hover:bg-gray-500 text-gray-300">复制</button>
+        <button id="btnSaveLog" class="text-xs px-2 py-1 rounded bg-gray-600 hover:bg-gray-500 text-gray-300">保存</button>
+      </div>
+    </details>
+
+    <!-- 报告区：AI 安全仪表盘 -->
+    <div id="report-sections" class="space-y-4"></div>
+
+    <!-- AI 研判配置：有 key 的模型即可使用 -->
+    <details class="mt-6 rounded-xl border border-violet-700/50 bg-gray-800/30" open>
+      <summary class="px-4 py-2 text-sm text-violet-300 cursor-pointer font-medium">✨ AI 研判配置</summary>
+      <div class="p-4 space-y-3 text-sm">
+        <p class="text-xs text-gray-500 mb-2">填写任一 API Key 即可使用对应模型。Qwen 在 <a href="https://bailian.console.aliyun.com" target="_blank" rel="noopener" class="text-violet-400 hover:underline">阿里云百炼控制台</a> 获取</p>
+        <label class="block">
+          <span class="text-gray-500 block mb-1">Gemini API Key <span id="geminiStatus" class="text-xs text-gray-600">(未配置)</span></span>
+          <input id="aiKeyGemini" type="password" placeholder="留空则不使用" class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 placeholder-gray-500" />
+        </label>
+        <label class="block">
+          <span class="text-gray-500 block mb-1">OpenAI API Key <span id="openaiStatus" class="text-xs text-gray-600">(未配置)</span></span>
+          <input id="aiKeyOpenai" type="password" placeholder="留空则不使用" class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 placeholder-gray-500" />
+        </label>
+        <label class="block">
+          <span class="text-gray-500 block mb-1">Qwen (阿里云百炼) API Key <span id="qwenStatus" class="text-xs text-gray-600">(未配置)</span></span>
+          <input id="aiKeyQwen" type="password" placeholder="留空则不使用" class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 placeholder-gray-500" />
+        </label>
+        <label class="block">
+          <span class="text-gray-500 block mb-1">Grok API Key <span id="grokStatus" class="text-xs text-gray-600">(未配置)</span></span>
+          <input id="aiKeyGrok" type="password" placeholder="留空则不使用" class="w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 placeholder-gray-500" />
+        </label>
+        <div class="flex items-center gap-2 pt-1">
+          <button id="btnSaveAiKeys" type="button" class="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-500">保存 API Key</button>
+          <span id="aiKeysSavedHint" class="text-xs text-green-500 opacity-0 transition-opacity">已保存</span>
+        </div>
+      </div>
+    </details>
+
+    <!-- 高级选项 -->
+    <details class="mt-4 rounded-xl border border-gray-700 bg-gray-800/30">
+      <summary class="px-4 py-2 text-sm text-gray-500 cursor-pointer">高级选项</summary>
+      <div class="p-4 space-y-2 text-sm">
+        <label class="block"><input id="corePath" type="text" placeholder="boaz-core 路径" class="w-full px-2 py-1 rounded bg-gray-900 border border-gray-600 text-gray-300" /></label>
+        <label class="block"><input id="rules" type="text" placeholder="Yara 规则路径" class="w-full px-2 py-1 rounded bg-gray-900 border border-gray-600 text-gray-300" /></label>
+        <label class="block"><input id="logDir" type="text" placeholder="日志目录" class="w-full px-2 py-1 rounded bg-gray-900 border border-gray-600 text-gray-300" /></label>
+        <label class="flex items-center gap-2 text-gray-400"><input type="checkbox" id="remove" /> 标记可处置项</label>
+      </div>
+    </details>
+
+    <p class="mt-8 text-xs text-gray-600 text-center">Boaz · Samuel · 零信任端点智能哨兵</p>
+  </div>
+
+  <!-- 威胁弹窗：监控发现可疑进程时弹出 -->
+  <div id="threatModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+    <div class="mx-4 w-full max-w-md rounded-2xl border-2 border-red-500/60 bg-gray-800 shadow-2xl">
+      <div class="border-b border-red-500/40 bg-red-900/30 px-4 py-3">
+        <h3 class="text-lg font-bold text-red-300">🚨 发现可疑进程</h3>
+        <p id="threatModalName" class="text-sm text-gray-300 mt-1"></p>
+      </div>
+      <div class="p-4 space-y-3">
+        <div id="threatModalPath" class="text-xs text-gray-400 font-mono break-all"></div>
+        <div id="threatModalConn" class="text-xs text-amber-400 font-mono"></div>
+        <details id="threatModalDetails" class="text-xs text-gray-500">
+          <summary class="cursor-pointer hover:text-gray-400">📋 查看详细信息</summary>
+          <div id="threatModalDetailsBody" class="mt-2 p-2 rounded bg-gray-900/60 font-mono whitespace-pre-wrap"></div>
+        </details>
+        <div id="threatModalAi" class="hidden p-3 rounded-lg bg-gray-900/80 border border-violet-500/30 text-sm text-gray-300"></div>
+        <div class="flex flex-wrap gap-2 pt-2">
+          <button id="threatBtnAi" class="ai-judge-btn px-4 py-2 rounded-lg text-white text-sm font-medium">✨ AI 研判</button>
+          <button id="threatBtnKill" class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-500">🔴 绞杀</button>
+          <button id="threatBtnWhitelist" class="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-500">🟢 加入白名单</button>
+          <button id="threatBtnDismiss" class="px-4 py-2 rounded-lg bg-gray-600 text-gray-300 text-sm hover:bg-gray-500">忽略</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ring = document.getElementById('status-ring');
+    const statusLabel = document.getElementById('status-label');
+    const mount = document.getElementById('mount');
+    const driveSelect = document.getElementById('driveSelect');
+    const corePath = document.getElementById('corePath');
+    const rules = document.getElementById('rules');
+    const logDir = document.getElementById('logDir');
+    const remove = document.getElementById('remove');
+    const btn = document.getElementById('btn');
+    const logEl = document.getElementById('log');
+    const reportEl = document.getElementById('report-sections');
+    const logLines = [];
+
+    // 核心状态过滤：知名厂商直接归为安全，智能降噪
+    const KNOWN_VENDORS = ['Tencent', 'QQ', 'WeChat', 'Microsoft', 'MySQL', 'MongoDB', 'EpicGames', 'PostgreSQL', 'ASUS', 'NVIDIA', 'Docker', 'Tailscale', 'Steam', 'Defender', 'QQPCMgr', 'Epic Games'];
+
+    function getPathToCheck(item) {
+      return (item.command_path || item.image_path || item.path || item.name || '').toLowerCase();
+    }
+
+    let userWhitelist = [];
+    let lastReport = null;
+
+    function categorizeData(rawData, whitelist) {
+      const wl = whitelist || userWhitelist;
+      const safe = [];
+      const suspicious = [];
+      rawData.forEach(item => {
+        const pathText = getPathToCheck(item);
+        const name = (item.name || extractProgramName(item) || '').toLowerCase();
+        const isKnown = KNOWN_VENDORS.some(vendor =>
+          pathText.includes(vendor.toLowerCase())
+        );
+        const isWhitelisted = wl.length && wl.some(entry => {
+          const e = String(entry || '').toLowerCase().trim();
+          return e && (pathText.includes(e) || name.includes(e));
+        });
+        if (isKnown || isWhitelisted) {
+          safe.push(item);
+        } else {
+          suspicious.push(item);
+        }
+      });
+      return { safe, suspicious };
+    }
+
+    function getMountPoint() {
+      const sel = (driveSelect && driveSelect.value) ? driveSelect.value.trim() : '';
+      const txt = (mount && mount.value) ? mount.value.trim() : '';
+      return sel || txt;
+    }
+    if (driveSelect && mount) {
+      driveSelect.addEventListener('change', function() { if (driveSelect.value) mount.value = driveSelect.value; });
+    }
+
+    function getLogText() { return logLines.join('\n') || (logEl.innerText || '').trim() || '(暂无日志)'; }
+    document.getElementById('btnCopyLog').addEventListener('click', function() {
+      navigator.clipboard.writeText(getLogText()).then(() => log('已复制', false)).catch(() => log('复制失败', true));
+    });
+    document.getElementById('btnSaveLog').addEventListener('click', async function() {
+      const invoke = window.__TAURI__?.core?.invoke;
+      if (!invoke) { log('未在 Tauri 环境', true); return; }
+      try {
+        const path = await invoke('save_log_to_disk', { content: getLogText(), customDir: (logDir?.value || '').trim() || null });
+        log('已保存到：' + path, false);
+      } catch (e) { log('保存失败：' + e, true); }
+    });
+
+    function log(msg, isErr) {
+      logLines.push(msg);
+      const p = document.createElement('div');
+      p.textContent = msg;
+      if (isErr) p.className = 'text-red-400';
+      logEl.appendChild(p);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(s, label) {
+      const cls = s === 'GREEN' ? 'bg-green-600 border-green-500 text-white' : s === 'YELLOW' ? 'bg-amber-500 border-amber-400 text-gray-900' : s === 'RED' ? 'bg-red-600 border-red-500 text-white' : s === 'SCANNING' ? 'bg-amber-500 border-amber-400 text-gray-900 pulse-dot' : 'bg-gray-700 border-gray-600 text-gray-400';
+      ring.className = 'status-ring w-28 h-28 rounded-full flex items-center justify-center text-sm font-bold border-4 ' + cls;
+      ring.textContent = label || s || '就绪';
+      const labels = { GREEN: '🟢 绝对安全', YELLOW: '🟡 存在可疑', RED: '🔴 高危威胁', SCANNING: '扫描中…' };
+      statusLabel.textContent = labels[s] || '选择盘符后开始扫描';
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return '';
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function extractProgramName(item) {
+      const name = item.name || item.path || item.rule_id || '';
+      const path = item.command_path || item.image_path || item.path || '';
+      const last = path.split(/[/\\]/).pop() || '';
+      return name || last || path.slice(0, 40) || '未知';
+    }
+
+    function getRiskType(item) {
+      if (item.type === 'run_key') return '可疑自启动';
+      if (item.type === 'file' || item.rule_id) return 'Yara 命中';
+      if (item.image_path) return '风险服务';
+      if (item.path && item.path.includes('\\')) return '风险计划任务';
+      return '可疑驻留';
+    }
+
+    function isItemWhitelisted(item, wl) {
+      if (!wl || !wl.length) return false;
+      const pathText = getPathToCheck(item);
+      const name = (item.name || extractProgramName(item) || '').toLowerCase();
+      return wl.some(entry => {
+        const e = String(entry || '').toLowerCase().trim();
+        return e && (pathText.includes(e) || name.includes(e));
+      });
+    }
+
+    function categorizeRisks(report) {
+      const runKeys = report.suspicious_run_keys || [];
+      const services = report.risky_services || [];
+      const tasks = report.risky_scheduled_tasks || [];
+      const yara = report.yara_matches || [];
+      const allItems = [
+        ...runKeys.map(k => ({ ...k, type: 'run_key', source: 'run' })),
+        ...services.map(s => ({ ...s, type: 'service', source: 'service' })),
+        ...tasks.map(t => ({ ...t, type: 'task', source: 'task' })),
+        ...yara.map(m => ({ ...m, type: 'yara', source: 'yara' }))
+      ];
+      const highRiskRaw = allItems.filter(item => item.type === 'yara' || item.rule_id);
+      const nonYara = allItems.filter(item => item.type !== 'yara' && !item.rule_id);
+      const { safe: knownSafe, suspicious } = categorizeData(nonYara);
+      // 高危项（Yara 命中）也应用白名单：已加入白名单的移入 knownSafe
+      const highRisk = highRiskRaw.filter(item => !isItemWhitelisted(item, userWhitelist));
+      const whitelistedHighRisk = highRiskRaw.filter(item => isItemWhitelisted(item, userWhitelist));
+      whitelistedHighRisk.forEach(item => knownSafe.push(item));
+      return { knownSafe, highRisk, suspicious, coreIntegrity: report.core_integrity || [] };
+    }
+
+    const AI_SAMPLES = [
+      'AI 分析：该程序伪装成系统组件，正尝试发起异常外连，极大概率是远控木马，建议立即绞杀！',
+      'AI 分析：该服务为第三方安全软件组件，加载底层驱动属于正常行为。若您已安装该软件，可加入白名单。',
+      'AI 分析：路径位于 AppData 下且无数字签名，存在被篡改风险。建议隔离后人工复核。'
+    ];
+
+    function renderReport(report) {
+      lastReport = report;
+      const { knownSafe, highRisk, suspicious, coreIntegrity } = categorizeRisks(report);
+      const unknownCount = highRisk.length + suspicious.length;
+      const safeCount = knownSafe.length;
+      let html = '';
+
+      // 魔法时刻：顶部优雅仪表盘摘要
+      html += '<div class="rounded-xl border border-gray-600 bg-gray-800/80 p-4 shadow-xl mb-4">';
+      if (unknownCount > 0) {
+        html += '<p class="text-base font-medium text-gray-100">扫描完成，发现 <span class="text-amber-400 font-bold">' + unknownCount + '</span> 个未知威胁';
+        if (safeCount > 0) html += '，已过滤 <span class="text-green-400">' + safeCount + '</span> 个已知安全软件（如腾讯管家、MySQL、NVIDIA）';
+        html += '。</p>';
+      } else {
+        html += '<p class="text-base font-medium text-green-400">扫描完成，系统咽喉点均正常';
+        if (safeCount > 0) html += '，已过滤 ' + safeCount + ' 个已知安全软件';
+        html += '。</p>';
+      }
+      html += '</div>';
+
+      if (highRisk.length > 0) {
+        html += '<div class="rounded-xl border-2 border-red-600/60 bg-red-900/20 p-4 shadow-lg mb-4">';
+        html += '<h3 class="text-sm font-semibold text-red-400 mb-2">🚨 严重威胁 (' + highRisk.length + ' 项)</h3>';
+        html += '<p class="text-xs text-gray-400 mb-3">Yara 规则命中，建议立即处置；若确认为误报可加入白名单</p>';
+        html += '<ul class="space-y-2">';
+        highRisk.forEach((item, idx) => {
+          const name = extractProgramName(item);
+          html += '<li class="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-gray-900/60">';
+          html += '<span class="text-sm font-medium text-red-300">' + escapeHtml(name) + '</span>';
+          html += '<span class="flex gap-2"><button class="highrisk-whitelist-btn px-3 py-1 rounded bg-green-600/80 text-white text-xs hover:bg-green-500" data-idx="' + idx + '">🟢 加入白名单</button><span class="text-xs px-2 py-0.5 rounded bg-red-600/40 text-red-200">立即绞杀</span></span>';
+          html += '</li>';
+        });
+        html += '</ul></div>';
+      }
+
+      if (suspicious.length > 0) {
+        html += '<div class="rounded-xl border-2 border-amber-500/40 bg-amber-900/10 p-4 shadow-lg mb-4">';
+        html += '<h3 class="text-sm font-semibold text-amber-400 mb-1">⚠️ 需警惕的未知项 (' + suspicious.length + ' 项)</h3>';
+        html += '<p class="text-xs text-gray-500 mb-3">下方为真正值得关注的可疑驻留，建议呼叫 AI 研判</p>';
+        html += '<ul class="space-y-3">';
+        suspicious.forEach((item, idx) => {
+          const name = extractProgramName(item);
+          const riskType = getRiskType(item);
+          html += '<li class="suspicious-item py-3 px-4 rounded-xl bg-gray-800/90 border border-gray-600 hover:border-amber-500/30 transition-colors" data-idx="' + idx + '">';
+          html += '<div class="flex items-center justify-between gap-3 flex-wrap">';
+          html += '<div><span class="text-sm font-semibold text-gray-100">' + escapeHtml(name) + '</span>';
+          html += '<span class="ml-2 text-xs text-amber-500/80">[' + escapeHtml(riskType) + ']</span></div>';
+          html += '<button class="ai-judge-btn jachin-glow text-sm px-4 py-2 rounded-lg text-white font-medium bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 transition-all" data-idx="' + idx + '">✨ 呼叫 AI 研判</button>';
+          html += '</div>';
+          html += '<div id="ai-panel-' + idx + '" class="ai-panel hidden mt-3 p-3 rounded-lg bg-gray-900/80 border border-gray-600 slide-down"></div>';
+          html += '</li>';
+        });
+        html += '</ul></div>';
+      }
+
+      if (knownSafe.length > 0) {
+        html += '<details class="rounded-xl border border-gray-700 bg-gray-800/40 p-4 mb-4">';
+        html += '<summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-400">✅ 已过滤 ' + knownSafe.length + ' 项已知安全软件（点击展开）</summary>';
+        html += '<ul class="mt-2 space-y-1 text-xs text-gray-500">';
+        knownSafe.forEach(item => {
+          const name = escapeHtml(extractProgramName(item));
+          const path = escapeHtml((item.command_path || item.image_path || item.path || '').slice(0, 80));
+          html += '<li class="py-1 border-b border-gray-700/50 last:border-0">' + name + (path ? ' <span class="text-gray-600">' + path + (path.length >= 80 ? '…' : '') + '</span>' : '') + '</li>';
+        });
+        html += '</ul></details>';
+      }
+
+      if (coreIntegrity.length > 0) {
+        html += '<div class="rounded-xl border border-gray-700 bg-gray-800/60 p-4 shadow-lg">';
+        html += '<h3 class="text-sm font-semibold text-gray-400 mb-2">核心文件完整性</h3>';
+        html += '<ul class="space-y-1 text-xs text-gray-500">';
+        coreIntegrity.slice(0, 6).forEach(c => {
+          html += '<li>' + escapeHtml(c.file) + ': ' + escapeHtml(String(c.sha256).slice(0, 16) + '…') + '</li>';
+        });
+        html += '</ul></div>';
+      }
+
+      if (suspicious.length === 0 && highRisk.length === 0 && knownSafe.length === 0) {
+        html += '<div class="rounded-xl border border-gray-700 bg-gray-800/60 p-6 text-center shadow-lg">';
+        html += '<p class="text-green-400 font-medium">🟢 未发现需关注项</p>';
+        html += '<p class="text-xs text-gray-500 mt-2">系统咽喉点均正常</p></div>';
+      }
+
+      reportEl.innerHTML = html;
+      const suspiciousItems = suspicious;
+      const highRiskItems = highRisk;
+
+      reportEl.querySelectorAll('.highrisk-whitelist-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          if (btn.classList.contains('opacity-50')) return;
+          const idx = parseInt(this.dataset.idx, 10);
+          const item = highRiskItems[idx];
+          if (!item || !invoke) return;
+          const programName = extractProgramName(item);
+          const programPath = (item.command_path || item.image_path || item.path || '').slice(0, 200);
+          try {
+            await invoke('add_to_whitelist', { programName, programPath });
+            userWhitelist = await invoke('get_whitelist') || [];
+            btn.textContent = '已加入'; btn.classList.add('opacity-50');
+            if (lastReport) renderReport(lastReport);
+          } catch (e) { log('加入白名单失败：' + e, true); }
+        });
+      });
+
+      // 按过滤后结果更新状态：全部白名单/安全则显示绿色，不再显示高危
+      const effectiveStatus = unknownCount === 0 ? 'GREEN' : (highRisk.length > 0 ? 'RED' : 'YELLOW');
+      const statusLabels = { GREEN: '🟢 绝对安全', YELLOW: '🟡 存在可疑', RED: '🔴 高危威胁' };
+      setStatus(effectiveStatus, statusLabels[effectiveStatus] || '就绪');
+
+      reportEl.querySelectorAll('.ai-judge-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+          const idx = parseInt(this.dataset.idx, 10);
+          const panel = document.getElementById('ai-panel-' + idx);
+          if (!panel || panel.classList.contains('loaded')) return;
+          const item = suspiciousItems[idx];
+          const programName = extractProgramName(item);
+          const programPath = (item.command_path || item.image_path || item.path || '').slice(0, 200);
+          const riskType = getRiskType(item);
+          panel.classList.remove('hidden');
+          panel.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><span class="pulse-dot">●</span> AI 正在研判…</div>';
+          const keys = {
+            gemini: (document.getElementById('aiKeyGemini')?.value || '').trim(),
+            openai: (document.getElementById('aiKeyOpenai')?.value || '').trim(),
+            qwen: (document.getElementById('aiKeyQwen')?.value || '').trim(),
+            grok: (document.getElementById('aiKeyGrok')?.value || '').trim()
+          };
+          const provider = keys.gemini ? 'gemini' : keys.openai ? 'openai' : keys.qwen ? 'qwen' : keys.grok ? 'grok' : '';
+          const apiKey = provider ? keys[provider] : '';
+          let result = '';
+          if (apiKey && invoke) {
+            try {
+              result = await invoke('invoke_ai_judgment', {
+                programName,
+                programPath,
+                riskType,
+                provider,
+                apiKey
+              });
+            } catch (e) {
+              result = 'AI 研判失败：' + String(e) + '。请检查 API Key 与网络，或使用模拟结果。';
+            }
+          }
+          if (!result) {
+            result = '⚠️ AI 未连接。请先在「AI 研判配置」中填写任一 API Key（Gemini / OpenAI / Qwen / Grok），才能进行真实威胁研判。';
+          }
+          panel.innerHTML = '<p class="text-sm text-gray-300 mb-3">' + escapeHtml(result) + '</p>' +
+            '<div class="mb-3 p-2 rounded-lg bg-gray-800/60 border border-gray-600">' +
+            '<p class="text-xs text-gray-500 mb-1">💡 若 AI 误判：补充说明后请 AI 重新研判</p>' +
+            '<input type="text" class="user-context-input w-full px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm placeholder-gray-500" placeholder="如：我是开发人员，这是我在用的工具/插件" />' +
+            '</div>' +
+            '<div class="flex flex-wrap gap-2">' +
+            '<button class="rejudge-btn text-sm px-3 py-2 rounded-lg text-violet-300 border border-violet-500/50 hover:bg-violet-500/20">🔄 请 AI 重新研判</button>' +
+            '<button class="whitelist-btn px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-500">🟢 加入白名单</button>' +
+            '<button class="kill-btn px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-500">🔴 立即绞杀</button>' +
+            '</div>';
+          panel.classList.add('loaded');
+          const ctxInput = panel.querySelector('.user-context-input');
+          const rjBtn = panel.querySelector('.rejudge-btn');
+          const wb = panel.querySelector('.whitelist-btn');
+          const kb = panel.querySelector('.kill-btn');
+          if (rjBtn && ctxInput) {
+            rjBtn.addEventListener('click', async function() {
+              const ctx = (ctxInput.value || '').trim();
+              rjBtn.disabled = true;
+              rjBtn.textContent = '研判中…';
+              try {
+                const newResult = await invoke('invoke_ai_judgment', {
+                  programName, programPath, riskType, provider, apiKey,
+                  userContext: ctx || null
+                });
+                const firstP = panel.querySelector('p');
+                if (firstP) firstP.textContent = newResult;
+              } catch (e) {
+                const firstP = panel.querySelector('p');
+                if (firstP) firstP.textContent = 'AI 重新研判失败：' + String(e);
+              }
+              rjBtn.disabled = false;
+              rjBtn.textContent = '🔄 请 AI 重新研判';
+            });
+          }
+          if (wb) wb.addEventListener('click', async () => {
+            if (wb.classList.contains('opacity-50')) return;
+            try {
+              await invoke('add_to_whitelist', { programName: programName, programPath: programPath });
+              userWhitelist = await invoke('get_whitelist') || [];
+              wb.textContent = '已加入白名单'; wb.classList.add('opacity-50');
+              if (lastReport) { renderReport(lastReport); }
+            } catch (e) { log('加入白名单失败：' + e, true); }
+          });
+          if (kb) kb.addEventListener('click', async () => {
+            if (kb.classList.contains('opacity-50')) return;
+            const itemType = item.type || (item.image_path ? 'service' : item.path && item.path.includes('\\') ? 'task' : 'run_key');
+            const itemName = item.name || extractProgramName(item);
+            const itemPath = item.command_path || item.image_path || item.path || '';
+            try {
+              const msg = await invoke('remediate_item', { itemType, name: itemName || null, path: itemPath || null });
+              kb.textContent = '已提交绞杀'; kb.classList.add('opacity-50');
+              log(msg, false);
+              if (lastReport) { renderReport(lastReport); }
+            } catch (e) { kb.textContent = '绞杀失败'; log('绞杀失败：' + e, true); }
+          });
+        });
+      });
+    }
+
+    const invoke = window.__TAURI__?.core?.invoke;
+    const listen = window.__TAURI__?.event?.listen;
+    const daemonLogEl = document.getElementById('daemonLog');
+
+    const AI_KEY_IDS = ['aiKeyGemini', 'aiKeyOpenai', 'aiKeyQwen', 'aiKeyGrok'];
+    const AI_KEYS_STORAGE = 'boaz_ai_keys';
+
+    function saveAiKeys() {
+      const obj = {};
+      AI_KEY_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) obj[id] = el.value || '';
+      });
+      try { localStorage.setItem(AI_KEYS_STORAGE, JSON.stringify(obj)); } catch (_) {}
+    }
+
+    function loadAiKeys() {
+      try {
+        const raw = localStorage.getItem(AI_KEYS_STORAGE);
+        if (!raw) return;
+        const obj = JSON.parse(raw);
+        AI_KEY_IDS.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && obj[id] != null) el.value = obj[id];
+        });
+      } catch (_) {}
+    }
+
+    function updateAiKeyStatus() {
+      const map = { gemini: 'aiKeyGemini', openai: 'aiKeyOpenai', qwen: 'aiKeyQwen', grok: 'aiKeyGrok' };
+      ['gemini', 'openai', 'qwen', 'grok'].forEach(p => {
+        const el = document.getElementById(p + 'Status');
+        const key = (document.getElementById(map[p])?.value || '').trim();
+        if (el) { el.textContent = key ? '(已配置 ✓)' : '(未配置)'; el.className = 'text-xs ' + (key ? 'text-green-500' : 'text-gray-600'); }
+      });
+    }
+
+    loadAiKeys();
+    updateAiKeyStatus();
+
+    AI_KEY_IDS.forEach(id => {
+      document.getElementById(id)?.addEventListener('input', () => { updateAiKeyStatus(); saveAiKeys(); });
+      document.getElementById(id)?.addEventListener('change', () => { updateAiKeyStatus(); saveAiKeys(); });
+    });
+
+    const btnSaveAiKeys = document.getElementById('btnSaveAiKeys');
+    const aiKeysSavedHint = document.getElementById('aiKeysSavedHint');
+    if (btnSaveAiKeys && aiKeysSavedHint) {
+      btnSaveAiKeys.addEventListener('click', () => {
+        saveAiKeys();
+        aiKeysSavedHint.classList.remove('opacity-0');
+        setTimeout(() => aiKeysSavedHint.classList.add('opacity-0'), 1500);
+      });
+    }
+
+    if (!invoke) {
+      log('未在 Tauri 环境中运行。请直接双击运行 Boaz 程序。', true);
+      setStatus('', 'N/A');
+    } else if (listen) {
+      listen('audit-log', ev => { if (ev.payload) log(ev.payload); });
+      listen('daemon-log', ev => {
+        if (ev.payload && daemonLogEl) {
+          const p = document.createElement('div');
+          p.textContent = ev.payload;
+          if (ev.payload.includes('内鬼') || ev.payload.includes('嫌疑')) p.className = 'text-red-400';
+          daemonLogEl.appendChild(p);
+          daemonLogEl.scrollTop = daemonLogEl.scrollHeight;
+        }
+      });
+      listen('daemon-threat', ev => {
+        if (ev.payload && invoke) {
+          invoke('show_main_window').catch(() => {});
+          showThreatModal(ev.payload);
+        }
+      });
+    }
+
+    function showThreatModal(data) {
+      const modal = document.getElementById('threatModal');
+      const nameEl = document.getElementById('threatModalName');
+      const pathEl = document.getElementById('threatModalPath');
+      const connEl = document.getElementById('threatModalConn');
+      const detailsBody = document.getElementById('threatModalDetailsBody');
+      const aiEl = document.getElementById('threatModalAi');
+      if (!modal || !nameEl) return;
+      const pid = data.pid || 0;
+      const name = data.name || '未知进程';
+      const path = data.path || '';
+      const conn = data.connections || '';
+      nameEl.textContent = name + ' (PID: ' + pid + ')';
+      pathEl.textContent = '路径: ' + path;
+      connEl.textContent = '外连: ' + conn;
+      detailsBody.textContent = 'PID: ' + pid + '\n路径: ' + path + '\n外连: ' + conn;
+      aiEl.classList.add('hidden');
+      aiEl.innerHTML = '';
+      modal.style.display = 'flex';
+      modal.classList.remove('hidden');
+      modal._threatData = { pid, name, path, conn };
+    }
+
+    function closeThreatModal() {
+      const modal = document.getElementById('threatModal');
+      if (modal) { modal.style.display = 'none'; modal.classList.add('hidden'); }
+    }
+
+    (function setupThreatModal() {
+      const modal = document.getElementById('threatModal');
+      const btnAi = document.getElementById('threatBtnAi');
+      const btnKill = document.getElementById('threatBtnKill');
+      const btnWhitelist = document.getElementById('threatBtnWhitelist');
+      const btnDismiss = document.getElementById('threatBtnDismiss');
+      if (!modal || !btnDismiss) return;
+      btnDismiss.addEventListener('click', closeThreatModal);
+      modal.addEventListener('click', e => { if (e.target === modal) closeThreatModal(); });
+      if (btnAi) btnAi.addEventListener('click', async function() {
+        const d = modal._threatData;
+        if (!d || !invoke) return;
+        const aiEl = document.getElementById('threatModalAi');
+        aiEl.classList.remove('hidden');
+        aiEl.innerHTML = '<div class="flex items-center gap-2 text-gray-400"><span class="pulse-dot">●</span> AI 正在研判…</div>';
+        const keys = { gemini: (document.getElementById('aiKeyGemini')?.value || '').trim(), openai: (document.getElementById('aiKeyOpenai')?.value || '').trim(), qwen: (document.getElementById('aiKeyQwen')?.value || '').trim(), grok: (document.getElementById('aiKeyGrok')?.value || '').trim() };
+        const provider = keys.gemini ? 'gemini' : keys.openai ? 'openai' : keys.qwen ? 'qwen' : keys.grok ? 'grok' : '';
+        const apiKey = provider ? keys[provider] : '';
+        let result = '';
+        if (apiKey) {
+          try { result = await invoke('invoke_ai_judgment', { programName: d.name, programPath: d.path, riskType: '监控发现可疑外连', provider, apiKey }); }
+          catch (e) { result = 'AI 研判失败：' + String(e); }
+        } else { result = '请先在「AI 研判配置」中填写 API Key'; }
+        aiEl.innerHTML = '<p>' + escapeHtml(result) + '</p>';
+      });
+      if (btnKill) btnKill.addEventListener('click', async function() {
+        const d = modal._threatData;
+        if (!d || !invoke || btnKill.classList.contains('opacity-50')) return;
+        try {
+          await invoke('kill_process_by_pid', { pid: d.pid });
+          btnKill.textContent = '已绞杀';
+          btnKill.classList.add('opacity-50');
+          log('已绞杀进程 PID=' + d.pid + ' ' + d.name, false);
+        } catch (e) { log('绞杀失败：' + e, true); }
+      });
+      if (btnWhitelist) btnWhitelist.addEventListener('click', async function() {
+        const d = modal._threatData;
+        if (!d || !invoke || btnWhitelist.classList.contains('opacity-50')) return;
+        try {
+          await invoke('add_to_whitelist', { programName: d.name, programPath: d.path });
+          userWhitelist = await invoke('get_whitelist') || [];
+          btnWhitelist.textContent = '已加入白名单';
+          btnWhitelist.classList.add('opacity-50');
+          log('已加入白名单：' + d.name, false);
+        } catch (e) { log('加入白名单失败：' + e, true); }
+      });
+    })();
+
+    const btnDaemonStart = document.getElementById('btnDaemonStart');
+    const btnDaemonStop = document.getElementById('btnDaemonStop');
+    const daemonDrive = document.getElementById('daemonDrive');
+    const daemonInterval = document.getElementById('daemonInterval');
+
+    if (btnDaemonStart && btnDaemonStop) {
+      btnDaemonStart.addEventListener('click', async function() {
+        if (!invoke) { daemonLogEl.innerHTML = '<span class="text-red-400">未在 Tauri 环境</span>'; return; }
+        daemonLogEl.innerHTML = '';
+        const drive = (daemonDrive?.value || '').trim() || null;
+        const interval = parseInt(daemonInterval?.value || '10', 10) || 10;
+        try {
+          await invoke('run_daemon_monitor', { driveFilter: drive, intervalSecs: Math.min(120, Math.max(5, interval)) });
+          daemonLogEl.innerHTML = '<span class="text-green-400">监控已启动，已最小化到托盘</span>';
+          btnDaemonStart.disabled = true;
+          btnDaemonStop.disabled = false;
+          try { await invoke('minimize_to_tray'); } catch (_) {}
+        } catch (e) { daemonLogEl.innerHTML = '<span class="text-red-400">' + e + '</span>'; }
+      });
+      btnDaemonStop.addEventListener('click', async function() {
+        if (!invoke) return;
+        try {
+          await invoke('stop_daemon_monitor');
+          daemonLogEl.innerHTML = '<span class="text-gray-400">监控已停止</span>';
+          btnDaemonStart.disabled = false;
+          btnDaemonStop.disabled = true;
+        } catch (e) { daemonLogEl.innerHTML = '<span class="text-red-400">' + e + '</span>'; }
+      });
+    }
+
+    if (invoke && driveSelect) {
+      invoke('get_drives').then(drives => {
+        if (drives?.length) drives.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; driveSelect.appendChild(o); });
+        else log('盘符列表为空，请手动填写路径', true);
+      }).catch(e => log('盘符加载失败：' + e, true));
+    }
+
+    btn.addEventListener('click', async () => {
+      const mp = getMountPoint();
+      if (!mp) { log('请先选择盘符或填写路径', true); return; }
+      btn.disabled = true;
+      setStatus('SCANNING', '扫描中…');
+      logEl.innerHTML = '';
+      logLines.length = 0;
+      reportEl.innerHTML = '';
+      log('正在扫描 ' + mp + '…');
+      try {
+        const reportJson = await invoke('run_audit', {
+          mountPoint: mp.trim(),
+          remove: remove.checked,
+          rulesPath: (rules.value || '').trim() || null,
+          corePathOverride: (corePath.value || '').trim() || null
+        });
+        const report = JSON.parse(reportJson);
+        try { userWhitelist = await invoke('get_whitelist') || []; } catch (_) {}
+        log('扫描完成');
+        renderReport(report);
+      } catch (e) {
+        log('错误：' + e, true);
+        setStatus(null, '失败');
+      }
+      btn.disabled = false;
+    });
+  </script>
+</body>
+</html>
