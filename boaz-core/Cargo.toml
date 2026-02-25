@@ -1,0 +1,27 @@
+[package]
+name = "boaz-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Samuel"]
+description = "Boaz Offline Environment Audit Engine"
+
+[features]
+default = ["yara"]
+# 开 Yara 才扫规则；Windows 没 yara.lib 就 cargo build --release --no-default-features
+yara = ["dep:yara"]
+
+[dependencies]
+anyhow = "1.0"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+thiserror = "1.0"
+clap = { version = "4.4", features = ["derive"] }
+nt-hive = "0.3"
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# vendored 编 C 库 + bundled-4_5_5 用预生成绑定，避免 bindgen/LLVM
+yara = { version = "0.31", optional = true, default-features = false, features = ["vendored", "bundled-4_5_5"] }

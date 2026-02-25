@@ -1,0 +1,55 @@
+# Cursor 与规则（不提交）
+.cursor/
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+
+# Tauri
+boaz-ui/src-tauri/target/
+boaz-ui/src-tauri/webview2/
+
+# 构建与产物
+dist/
+build/
+release/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# 环境与密钥（勿提交）
+.env
+.env.local
+*.pem
+*.key
+
+# 日志与临时
+*.log
+tmp/
+temp/

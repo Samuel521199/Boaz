@@ -1,0 +1,8 @@
+{
+  "name": "boaz-reporter",
+  "version": "0.1.0",
+  "author": "Samuel",
+  "description": "Boaz 审计报告推送至 Lark/飞书",
+  "private": true,
+  "scripts": { "push": "node push_to_lark.js" }
+}

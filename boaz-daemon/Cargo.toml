@@ -1,0 +1,25 @@
+[package]
+name = "boaz-daemon"
+version = "0.1.0"
+edition = "2021"
+authors = ["Samuel"]
+description = "Boaz Live 守护进程 - 进程与网络感知融合 (The Eye of Boaz)"
+
+[dependencies]
+boaz-shared = { path = "../boaz-shared" }
+clap = { version = "4", features = ["derive"] }
+sysinfo = "0.31"
+netstat2 = "0.11"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
+] }

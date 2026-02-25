@@ -68,9 +68,10 @@
           <input id="daemonDrive" type="text" placeholder="盘符留空=全盘" class="flex-1 min-w-[100px] px-3 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm" />
           <input id="daemonInterval" type="number" value="10" min="5" max="120" class="w-16 px-2 py-2 rounded-lg bg-gray-900 border border-gray-600 text-gray-100 text-sm" />
         </div>
-        <div class="flex gap-2">
-          <button id="btnDaemonStart" class="flex-1 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-500">启动监控</button>
-          <button id="btnDaemonStop" class="flex-1 py-2 rounded-lg font-medium text-gray-300 bg-gray-600 hover:bg-gray-500 disabled:opacity-50" disabled>停止监控</button>
+        <div class="flex gap-2 flex-wrap">
+          <button id="btnDaemonStart" class="flex-1 py-2 rounded-lg font-medium text-white bg-indigo-600 hover:bg-indigo-500 min-w-[100px]">启动监控</button>
+          <button id="btnDaemonStop" class="flex-1 py-2 rounded-lg font-medium text-gray-300 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 min-w-[100px]" disabled>停止监控</button>
+          <button id="btnTestThreat" class="py-2 px-3 rounded-lg font-medium text-amber-300 bg-amber-900/40 hover:bg-amber-800/50 text-sm" title="模拟威胁弹窗，用于诊断">测试告警</button>
         </div>
         <p class="text-xs text-gray-500 mt-1">启动后自动最小化到托盘，点击右下角图标可恢复。需 boaz-daemon.exe 与程序同目录</p>
         <div id="daemonLog" class="mt-2 p-2 rounded-lg bg-gray-900/50 text-xs text-gray-400 max-h-24 overflow-y-auto font-mono"></div>
@@ -571,7 +572,7 @@
         if (ev.payload && daemonLogEl) {
           const p = document.createElement('div');
           p.textContent = ev.payload;
-          if (ev.payload.includes('内鬼') || ev.payload.includes('嫌疑')) p.className = 'text-red-400';
+          if (ev.payload.includes('THREAT') || ev.payload.includes('内鬼') || ev.payload.includes('嫌疑')) p.className = 'text-red-400';
           daemonLogEl.appendChild(p);
           daemonLogEl.scrollTop = daemonLogEl.scrollHeight;
         }
@@ -687,6 +688,13 @@
           btnDaemonStart.disabled = false;
           btnDaemonStop.disabled = true;
         } catch (e) { daemonLogEl.innerHTML = '<span class="text-red-400">' + e + '</span>'; }
+      });
+    }
+    const btnTestThreat = document.getElementById('btnTestThreat');
+    if (btnTestThreat && typeof showThreatModal === 'function') {
+      btnTestThreat.addEventListener('click', function() {
+        if (invoke) invoke('show_main_window').catch(() => {});
+        showThreatModal({ pid: 12345, name: 'fake-threat.exe', path: 'C:\\Users\\test\\AppData\\Roaming\\boaz-test\\fake-threat.exe', connections: '127.0.0.1:4444' });
       });
     }
 

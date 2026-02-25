@@ -1,0 +1,31 @@
+{
+  "productName": "boaz-ui",
+  "version": "0.1.0",
+  "identifier": "com.boaz.ui",
+  "build": {
+    "beforeDevCommand": "",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "cargo build -p boaz-daemon --release",
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Boaz 离线审计",
+        "width": 520,
+        "height": 520,
+        "create": true
+      }
+    ]
+  },
+  "bundle": {
+    "windows": {
+      "webviewInstallMode": {
+        "type": "fixedRuntime",
+        "path": "./webview2"
+      }
+    }
+  }
+}
