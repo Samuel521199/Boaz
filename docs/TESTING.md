@@ -112,13 +112,33 @@ cargo tauri dev
 
 ---
 
+### 6. 监控与威胁弹窗（Phase 1）
+
+**威胁检测诊断（一键验证 daemon 能否检测）：**
+
+```powershell
+.\scripts\test-threat-detection.ps1
+```
+
+输出 `[OK] Threat detected!` 即 daemon 工作正常。
+
+**完整流程：**
+
+1. 启动 `boaz-ui.exe`，点击「启动监控」（需 `boaz-daemon.exe` 与 UI 同目录）。
+2. 另开终端运行 `cargo run -p boaz-test-threat --release`。
+3. 约 10 秒内应弹出威胁告警，可测试 AI 研判、绞杀、白名单。
+4. 点击「测试告警」按钮可模拟弹窗，用于诊断 UI。
+
+---
+
 ## 三、建议的测试顺序
 
 | 步骤 | 操作 | 目的 |
 |------|------|------|
 | 1 | `cd boaz-core && cargo test` | 确认危险路径与任务路径逻辑正确 |
 | 2 | `cd boaz-net && npm test` | 确认规则引擎告警条件正确 |
-| 3 | （可选）在真实或虚拟机挂载点上跑一次 `boaz-core -m <path>` | 端到端验证引擎与 Hive 解析 |
-| 4 | （可选）在 PE 或 Live 中跑 boaz-ui，指定 U 盘上的 boaz-core | 验证实际使用流程 |
+| 3 | `.\scripts\test-threat-detection.ps1` | 验证 daemon 威胁检测 |
+| 4 | （可选）在真实或虚拟机挂载点上跑一次 `boaz-core -m <path>` | 端到端验证引擎与 Hive 解析 |
+| 5 | （可选）在 PE 或 Live 中跑 boaz-ui，指定 U 盘上的 boaz-core | 验证实际使用流程 |
 
-跑完 1、2 就算核心和规则过关；3、4 是发版或上现场前再摸一遍流程用的。
+跑完 1、2、3 就算核心、规则和监控过关；4、5 是发版或上现场前再摸一遍流程用的。

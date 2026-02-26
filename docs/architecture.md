@@ -1,17 +1,18 @@
 # Boaz 技术架构说明
 
 更多内容看项目根目录 [README.md](../README.md) 及 [whitepaper-v2.md](whitepaper-v2.md)。  
-作者 Samuel，2026-02-24。
+作者 Samuel，2026-02-25。
 
 ---
 
 ## 架构概览
 
-Boaz 面向 **V2.0** 演进：从离线审计（Phase 0）转向 AI 驱动的实时 EDR（Phase 1–3）。当前已实现 Phase 0 的离线静态审计能力。
+Boaz 面向 **V2.0** 演进：从离线审计（Phase 0）转向 AI 驱动的实时 EDR（Phase 1–3）。  
+**当前已实现**：Phase 0 离线静态审计、Phase 1 进程与网络感知、Phase 2 部分（AI 研判、绞杀、白名单）。
 
 ---
 
-## Phase 0：离线静态审计（当前实现）
+## Phase 0：离线静态审计 ✅
 
 ### 检测与处置
 
@@ -23,8 +24,24 @@ Boaz 面向 **V2.0** 演进：从离线审计（Phase 0）转向 AI 驱动的实
 
 ---
 
-## V2.0 目标架构（Phase 1–3）
+## Phase 1：进程与网络感知（The Eye of Boaz）✅
 
-- **探针层**：ETW 实时捕获进程、注册表、网络事件；微隔离沙箱（NtSuspendProcess）
-- **智脑层**：本地 Hash/Yara 秒杀 + 大模型研判
-- **交互层**：系统托盘 + 语义化告警弹窗，人机决策
+- **boaz-daemon**：sysinfo 进程图谱 + netstat2 网络连接，按 PID 关联「哪个进程连了哪个 IP:端口」。
+- 本地初筛：微软签名进程、白名单路径（System32、知名软件）直接放行。
+- 嫌疑判定：AppData\Roaming 或 Temp 下无签名程序 + 外连可疑端口（4444、5555 等）或任意远程 IP。
+- **boaz-ui 集成**：启动监控后 spawn daemon，stderr 通过 `daemon-log` 事件推送；解析 `[THREAT]` 行发出 `daemon-threat`，触发威胁弹窗。
+
+---
+
+## Phase 2：AI 研判与处置 🔄 部分完成
+
+- **已实现**：AI 研判（Gemini/OpenAI/Qwen/Grok）、按 PID 绞杀（taskkill）、加入白名单、威胁弹窗（AI 研判/绞杀/白名单/忽略）。
+- **待实现**：进程挂起（NtSuspendProcess）、Resume 解除冻结。
+
+---
+
+## V2.0 目标架构（Phase 3）
+
+- **探针层**：ETW 实时捕获（当前为轮询）；微隔离沙箱（NtSuspendProcess）
+- **智脑层**：本地 Hash/Yara 秒杀 + 大模型研判 ✅
+- **交互层**：系统托盘 + 语义化告警弹窗 ✅

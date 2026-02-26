@@ -81,6 +81,8 @@
 | `build.bat` | Windows | 项目根目录一键构建：自动下载 WebView2、编译、打包 |
 | `build-and-pack.ps1` | Windows | 同上（PowerShell 版） |
 | `setup-webview2.ps1` | Windows | 准备 WebView2 固定版（无参数时自动从 NuGet 下载） |
+| `prepare-release.ps1` | Windows | 构建 release 并复制 boaz-ui、boaz-daemon、boaz-test-threat 到 release/Boaz |
+| `test-threat-detection.ps1` | Windows | 威胁检测诊断：启动模拟威胁，运行 daemon --once，验证能否检测 |
 | `prepare-ventoy-usb.ps1` | Windows | 向已安装 Ventoy 的 U 盘写入 BOAZ 目录及可执行文件 |
 | `prepare-ventoy-usb.sh` | Linux / macOS | 同上 |
 | `winpe-quick-setup.ps1` | Windows | 使用 ADK 生成 WinPE 并写入 U 盘 + 复制 Boaz，或给出手动步骤 |
